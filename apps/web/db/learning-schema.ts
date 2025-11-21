@@ -18,14 +18,28 @@ import type {
 // Learning & Results Tables
 // ============================================================================
 
-export const results = pgTable("results", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  userId: varchar("user_id", { length: 36 }).notNull(),
-  subject: varchar("subject", { length: 64 }),
-  score: integer("score"),
-  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const results = pgTable(
+  "results",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 }).notNull(),
+    subject: varchar("subject", { length: 64 }),
+    score: integer("score"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    // Index for leaderboard queries (subject + score + userId)
+    userIdIdx: index("idx_results_user_id").on(table.userId),
+    subjectIdx: index("idx_results_subject").on(table.subject),
+    scoreIdx: index("idx_results_score").on(table.score),
+    // Compound index for subject-specific leaderboards
+    subjectScoreIdx: index("idx_results_subject_score").on(table.subject, table.score),
+    // Compound index for user-specific queries
+    userSubjectIdx: index("idx_results_user_subject").on(table.userId, table.subject),
+    createdAtIdx: index("idx_results_created_at").on(table.createdAt),
+  })
+);
 
 // ============================================================================
 // Learning & Challenges Tables
@@ -84,6 +98,10 @@ export const challenges = pgTable(
     invitedUserIdIdx: index("idx_challenges_invited_user_id").on(table.invitedUserId),
     statusIdx: index("idx_challenges_status").on(table.status),
     subjectIdx: index("idx_challenges_subject").on(table.subject),
+    // Compound index for common query pattern: user's challenges by status
+    userStatusIdx: index("idx_challenges_user_status").on(table.userId, table.status),
+    // Compound index for invited user challenges by status
+    invitedUserStatusIdx: index("idx_challenges_invited_user_status").on(table.invitedUserId, table.status),
   })
 );
 
